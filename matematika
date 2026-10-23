@@ -1,0 +1,353 @@
+
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalkulator funkcija</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #101827;
+    color: white;
+}
+
+header {
+    text-align: center;
+    padding: 30px 15px;
+    background: #172554;
+}
+
+header h1 {
+    color: #60a5fa;
+    font-size: 35px;
+}
+
+main {
+    max-width: 850px;
+    margin: 25px auto;
+    padding: 20px;
+}
+
+.card {
+    background: #1e293b;
+    padding: 22px;
+    margin-bottom: 20px;
+    border-radius: 15px;
+}
+
+label {
+    display: block;
+    margin-top: 15px;
+    margin-bottom: 7px;
+}
+
+input, select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #475569;
+    border-radius: 8px;
+    background: #0f172a;
+    color: white;
+    font-size: 16px;
+}
+
+button {
+    padding: 12px 16px;
+    margin: 8px 5px 0 0;
+    border: none;
+    border-radius: 8px;
+    background: #3b82f6;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #2563eb;
+}
+
+.result {
+    background: #0f172a;
+    padding: 18px;
+    margin-top: 15px;
+    border-radius: 10px;
+    overflow-wrap: anywhere;
+    line-height: 1.8;
+}
+
+.answer {
+    color: #6ee7b7;
+    font-size: 21px;
+    font-weight: bold;
+}
+
+small {
+    color: #cbd5e1;
+}
+
+@media (max-width: 600px) {
+    header h1 { font-size: 27px; }
+    main { padding: 12px; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Kalkulator funkcija</h1>
+    <p>Rešavanje funkcija korak po korak</p>
+</header>
+
+<main>
+
+<div class="card">
+    <h2>1. Unesi funkcije</h2>
+
+    <label>f(x) =</label>
+    <input id="f" value="2*x+3">
+
+    <label>g(x) =</label>
+    <input id="g" value="x^2-1">
+
+    <label>Vrednost x (za računanje f(x) i g(x))</label>
+    <input id="x" type="number" value="2" step="any">
+
+    <label>Izaberi operaciju</label>
+    <select id="op">
+        <option value="f">f(x)</option>
+        <option value="g">g(x)</option>
+        <option value="gf">g ∘ f = g(f(x))</option>
+        <option value="fg">f ∘ g = f(g(x))</option>
+        <option value="fi">f⁻¹(x)</option>
+        <option value="gi">g⁻¹(x)</option>
+    </select>
+
+    <button onclick="solve()">Izračunaj</button>
+    <button onclick="clearResult()">Obriši</button>
+
+    <div class="result" id="result">
+        Rezultat će se prikazati ovde.
+    </div>
+</div>
+
+<div class="card">
+    <h2>2. Gotovi primeri</h2>
+
+    <button onclick="example(1)">Primer f(x)</button>
+    <button onclick="example(2)">Primer g(f(x))</button>
+    <button onclick="example(3)">Primer f(g(x))</button>
+    <button onclick="example(4)">Primer inverzne funkcije</button>
+    <button onclick="example(5)">Primer g(x)</button>
+</div>
+
+<div class="card">
+    <h2>3. Kako se rešava?</h2>
+    <div id="steps" class="result">
+        Ovde će biti prikazan postupak rešavanja.
+    </div>
+</div>
+
+</main>
+
+<script>
+function compile(s) {
+    s = s.trim().replace(/\s+/g, "");
+    if (!s) throw Error("Unesi funkciju.");
+
+    // Dozvoljeni su samo matematički izrazi.
+    if (!/^[0-9xX+\-*/^().]+$/.test(s)) {
+        throw Error("Koristi brojeve, x, +, -, *, /, ^ i zagrade.");
+    }
+
+    s = s.replace(/[X]/g, "x").replace(/\^/g, "**");
+
+    // Podržava 2x i 2(x+1).
+    s = s.replace(/(\d|\))(?=x|\()/g, "$1*");
+
+    const fn = new Function(
+        "x",
+        '"use strict"; return (' + s + ');'
+    );
+
+    return function(x) {
+        const y = fn(x);
+        if (typeof y !== "number" || !Number.isFinite(y)) {
+            throw Error("Funkcija nije definisana za ovu vrednost.");
+        }
+        return y;
+    };
+}
+
+function format(n) {
+    return Number(n.toPrecision(10)).toString();
+}
+
+function substitute(s, replacement) {
+    return "(" + s.replace(/x/g, "(" + replacement + ")") + ")";
+}
+
+function inverseLinear(s) {
+    s = s.replace(/\s/g, "").replace(/\*/g, "");
+
+    const m = s.match(
+        /^([+-]?(?:\d+(?:\.\d*)?|\.\d+)?)x([+-](?:\d+(?:\.\d*)?|\.\d+))?$/
+    );
+
+    if (!m) return null;
+
+    let a = m[1];
+    let b = m[2] || "0";
+
+    if (a === "" || a === "+") a = "1";
+    if (a === "-") a = "-1";
+
+    a = Number(a);
+    b = Number(b);
+
+    if (a === 0) return null;
+
+    let numerator;
+
+    if (b > 0) numerator = `(x-${format(b)})`;
+    else if (b < 0) numerator = `(x+${format(-b)})`;
+    else numerator = "x";
+
+    return `${numerator}/${format(a)}`;
+}
+
+function show(answer, explanation) {
+    document.getElementById("result").innerHTML =
+        `<div class="answer">${answer}</div>`;
+
+    document.getElementById("steps").innerHTML =
+        explanation.map((s, i) =>
+            `<p>${i + 1}. ${s}</p>`
+        ).join("");
+}
+
+function solve() {
+    const fText = document.getElementById("f").value.trim();
+    const gText = document.getElementById("g").value.trim();
+    const xInput = document.getElementById("x").value;
+    const operation = document.getElementById("op").value;
+
+    try {
+        const f = compile(fText);
+        const g = compile(gText);
+        const x = Number(xInput);
+
+        if (["f", "g"].includes(operation) && xInput.trim() === "") {
+            throw Error("Unesi vrednost x.");
+        }
+
+        if (operation === "f") {
+            const y = f(x);
+            show(`f(${format(x)}) = ${format(y)}`, [
+                `Data je funkcija f(x) = ${fText}.`,
+                `Zamenimo x sa ${format(x)}.`,
+                `Izračunamo izraz i dobijamo ${format(y)}.`
+            ]);
+        }
+
+        else if (operation === "g") {
+            const y = g(x);
+            show(`g(${format(x)}) = ${format(y)}`, [
+                `Data je funkcija g(x) = ${gText}.`,
+                `Zamenimo x sa ${format(x)}.`,
+                `Izračunamo izraz i dobijamo ${format(y)}.`
+            ]);
+        }
+
+        else if (operation === "gf") {
+            const expression = substitute(gText, fText);
+            const y = g(f(x));
+
+            show(`g(f(x)) = ${expression}`, [
+                `Prvo napišemo g(f(x)).`,
+                `Ubacimo f(x) = ${fText} u funkciju g.`,
+                `Dobijamo g(f(x)) = ${expression}.`,
+                `Provera za x = 1: rezultat je ${format(y = g(f(1)))}.`
+            ]);
+        }
+
+        else if (operation === "fg") {
+            const expression = substitute(fText, gText);
+            const y = f(g(x));
+
+            show(`f(g(x)) = ${expression}`, [
+                `Prvo napišemo f(g(x)).`,
+                `Ubacimo g(x) = ${gText} u funkciju f.`,
+                `Dobijamo f(g(x)) = ${expression}.`,
+                `Provera za x = 1: rezultat je ${format(f(g(1)))}.`
+            ]);
+        }
+
+        else {
+            const isF = operation === "fi";
+            const source = isF ? fText : gText;
+            const inverse = inverseLinear(source);
+
+            if (!inverse) {
+                throw Error(
+                    "Inverzna funkcija se ovde automatski računa za linearne funkcije ax+b, gde je a različito od nule."
+                );
+            }
+
+            show(`${isF ? "f" : "g"}⁻¹(x) = ${inverse}`, [
+                `Počnemo od y = ${source}.`,
+                "Zamenimo mesta promenljivama x i y.",
+                "Izrazimo y iz dobijene jednačine.",
+                `Dobijamo inverznu funkciju ${inverse}.`
+            ]);
+        }
+
+    } catch (error) {
+        document.getElementById("result").innerHTML =
+            `<span style="color:#fca5a5">${error.message}</span>`;
+
+        document.getElementById("steps").textContent =
+            "Proveri zapis funkcije i pokušaj ponovo.";
+    }
+}
+
+function example(n) {
+    const examples = {
+        1: ["2*x+3", "x^2-1", "f", 4],
+        2: ["2*x+1", "x^2", "gf", 2],
+        3: ["x-5", "3*x+2", "fg", 2],
+        4: ["3*x-6", "x+2", "fi", 2],
+        5: ["x^2-4", "2*x+1", "g", 3]
+    };
+
+    const e = examples[n];
+
+    document.getElementById("f").value = e[0];
+    document.getElementById("g").value = e[1];
+    document.getElementById("op").value = e[2];
+    document.getElementById("x").value = e[3];
+
+    solve();
+}
+
+function clearResult() {
+    document.getElementById("result").textContent =
+        "Rezultat će se prikazati ovde.";
+
+    document.getElementById("steps").textContent =
+        "Ovde će biti prikazan postupak rešavanja.";
+}
+
+solve();
+</script>
+
+</body>
+</html>
+
